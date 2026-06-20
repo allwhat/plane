@@ -1,0 +1,19 @@
+name: PackageMaze setup-maze smoke
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/packagemaze-setup-maze-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: packagemaze/setup-maze@v0.0.1
+      - run: maze version
+      - run: maze auth exchange-oidc --help
