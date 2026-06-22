@@ -1,0 +1,112 @@
+name: PackageMaze Docker build rehearsal
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/packagemaze-docker-build-rehearsal.yml"
+      - "apps/**/Dockerfile*"
+      - "deployments/aio/community/Dockerfile"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  docker-builds:
+    name: Build ${{ matrix.name }} with PackageMaze
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: web
+            context: .
+            file: ./apps/web/Dockerfile.web
+            target: installer
+            build_args: ""
+          - name: admin
+            context: .
+            file: ./apps/admin/Dockerfile.admin
+            target: installer
+            build_args: ""
+          - name: space
+            context: .
+            file: ./apps/space/Dockerfile.space
+            target: installer
+            build_args: ""
+          - name: live
+            context: .
+            file: ./apps/live/Dockerfile.live
+            target: installer
+            build_args: ""
+          - name: api
+            context: ./apps/api
+            file: Dockerfile.api
+            target: ""
+            build_args: ""
+          - name: aio
+            context: ./deployments/aio/community
+            file: Dockerfile
+            target: ""
+            build_args: PLANE_VERSION=v0.27.1
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - id: packagemaze-npm-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/npm-smoke-test
+          purpose: docker-build
+
+      - id: packagemaze-pypi-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/pypi-smoke-test
+          purpose: docker-build
+
+      - name: Write BuildKit PackageMaze package-client config
+        env:
+          PACKAGE_MAZE_NPM_TOKEN: ${{ steps.packagemaze-npm-token.outputs.token }}
+          PACKAGE_MAZE_PYPI_TOKEN: ${{ steps.packagemaze-pypi-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          {
+            echo "registry=https://pkg.packagemaze.com/packagemaze/npm-smoke-test/"
+            echo "replace-registry-host=always"
+            printf "//pkg.packagemaze.com/packagemaze/npm-smoke-test/:_authToken=%s\n" "$PACKAGE_MAZE_NPM_TOKEN"
+          } > "$RUNNER_TEMP/packagemaze.npmrc"
+          printf "[global]\nindex-url = https://__token__:%s@pkg.packagemaze.com/packagemaze/pypi-smoke-test/simple/\n" "$PACKAGE_MAZE_PYPI_TOKEN" > "$RUNNER_TEMP/packagemaze-pip.conf"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Prepare AIO build context
+        if: matrix.name == 'aio'
+        run: ./deployments/aio/community/build.sh --release=v0.27.1
+
+      - name: Build targeted Docker dependency stage
+        if: matrix.target != ''
+        uses: docker/build-push-action@v7.0.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          build-args: ${{ matrix.build_args }}
+          push: false
+          secret-files: |
+            packagemaze_npmrc=${{ runner.temp }}/packagemaze.npmrc
+            packagemaze_pip_conf=${{ runner.temp }}/packagemaze-pip.conf
+
+      - name: Build Docker image
+        if: matrix.target == ''
+        uses: docker/build-push-action@v7.0.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          build-args: ${{ matrix.build_args }}
+          push: false
+          secret-files: |
+            packagemaze_npmrc=${{ runner.temp }}/packagemaze.npmrc
+            packagemaze_pip_conf=${{ runner.temp }}/packagemaze-pip.conf
