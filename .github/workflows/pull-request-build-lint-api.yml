@@ -18,6 +18,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   lint-api:
     name: Lint API
@@ -34,9 +38,19 @@ jobs:
           python-version: "3.12.x"
           cache: 'pip'
           cache-dependency-path: 'apps/api/requirements.txt'
+      - name: Set up my CI to install from PackageMaze
+        id: packagemaze-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/pypi-smoke-test
+          purpose: install
       - name: Install Pylint
+        env:
+          PIP_INDEX_URL: https://__token__:${{ steps.packagemaze-token.outputs.token }}@pkg.packagemaze.com/packagemaze/pypi-smoke-test/simple/
         run: python -m pip install ruff
       - name: Install API Dependencies
+        env:
+          PIP_INDEX_URL: https://__token__:${{ steps.packagemaze-token.outputs.token }}@pkg.packagemaze.com/packagemaze/pypi-smoke-test/simple/
         run: cd apps/api && pip install -r requirements.txt
       - name: Lint apps/api
         run: ruff check --fix apps/api
