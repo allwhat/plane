@@ -25,6 +25,7 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   sync-check:
@@ -47,5 +48,14 @@ jobs:
       - name: Enable Corepack and pnpm
         run: corepack enable pnpm
 
+      - name: Set up my CI to install from PackageMaze
+        id: packagemaze-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/npm-smoke-test
+          purpose: install
+
       - name: Run sync check
+        env:
+          MAZE_TOKEN: ${{ steps.packagemaze-token.outputs.token }}
         run: pnpm dlx tsx packages/i18n/scripts/sync-check.ts --ci

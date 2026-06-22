@@ -14,6 +14,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   # Format check has no build dependencies - run immediately in parallel
   check-format:
@@ -51,7 +55,16 @@ jobs:
           restore-keys: |
             pnpm-store-${{ runner.os }}-
 
+      - name: Set up my CI to install from PackageMaze
+        id: packagemaze-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/npm-smoke-test
+          purpose: install
+
       - name: Install dependencies
+        env:
+          MAZE_TOKEN: ${{ steps.packagemaze-token.outputs.token }}
         run: pnpm install --frozen-lockfile
 
       - name: Check formatting
@@ -103,7 +116,16 @@ jobs:
             turbo-${{ runner.os }}-${{ github.event.pull_request.base.sha }}-
             turbo-${{ runner.os }}-
 
+      - name: Set up my CI to install from PackageMaze
+        id: packagemaze-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/npm-smoke-test
+          purpose: install
+
       - name: Install dependencies
+        env:
+          MAZE_TOKEN: ${{ steps.packagemaze-token.outputs.token }}
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
@@ -151,7 +173,16 @@ jobs:
           restore-keys: |
             pnpm-store-${{ runner.os }}-
 
+      - name: Set up my CI to install from PackageMaze
+        id: packagemaze-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/npm-smoke-test
+          purpose: install
+
       - name: Install dependencies
+        env:
+          MAZE_TOKEN: ${{ steps.packagemaze-token.outputs.token }}
         run: pnpm install --frozen-lockfile
 
       - name: Run check:lint
@@ -198,7 +229,16 @@ jobs:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.event.pull_request.base.sha }}-${{ github.sha }}
 
+      - name: Set up my CI to install from PackageMaze
+        id: packagemaze-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/npm-smoke-test
+          purpose: install
+
       - name: Install dependencies
+        env:
+          MAZE_TOKEN: ${{ steps.packagemaze-token.outputs.token }}
         run: pnpm install --frozen-lockfile
 
       - name: Run check:types

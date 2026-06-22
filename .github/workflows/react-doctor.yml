@@ -20,6 +20,8 @@ on:
 permissions:
   # `actions/checkout` needs this to read the repo source.
   contents: read
+  # `setup-maze` exchanges GitHub's OIDC token for a PackageMaze token.
+  id-token: write
   # Two uses: (1) reads the PR's changed-file list so the scan only checks
   # what the PR touched (faster, scoped to the diff), and (2) posts/updates
   # the sticky React Doctor summary comment on the PR. Downgrade `write` to
@@ -48,7 +50,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - id: packagemaze-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/npm-smoke-test
+          purpose: install
+
       - uses: millionco/react-doctor@v2
+        env:
+          MAZE_TOKEN: ${{ steps.packagemaze-token.outputs.token }}
         # Common configuration knobs — uncomment any to override the default.
         # Full reference: https://www.react.doctor/ci
         # with:

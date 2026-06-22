@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM python:3.12.5-alpine AS backend
 
 # set environment variables
@@ -29,7 +30,8 @@ COPY requirements.txt ./requirements.txt
 ADD requirements ./requirements
 
 # Install the local development settings
-RUN pip install -r requirements/local.txt --compile --no-cache-dir
+RUN --mount=type=secret,id=packagemaze_pip_conf,target=/run/secrets/pip.conf \
+    PIP_CONFIG_FILE=/run/secrets/pip.conf pip install -r requirements/local.txt --compile --no-cache-dir
 
 
 COPY . .
@@ -43,4 +45,3 @@ RUN chmod -R 777 /code
 EXPOSE 8000
 
 CMD [ "./bin/docker-entrypoint-api-local.sh" ]
-
