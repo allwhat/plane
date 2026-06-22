@@ -1,26 +1,34 @@
 # syntax=docker/dockerfile:1.7
 FROM node:22-alpine AS base
 
-# Setup pnpm package manager with corepack and configure global bin directory for caching
+# Setup pnpm package manager and configure global bin directory for caching.
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PNPM_HOME/bin:$PATH"
-RUN corepack enable
+ENV NPM_CONFIG_PREFIX="$PNPM_HOME"
 
 # *****************************************************************************
-# STAGE 1: Build the project
+# STAGE 0: Install package tooling
 # *****************************************************************************
-FROM base AS builder
-RUN apk add --no-cache libc6-compat
-# Set working directory
+FROM base AS package-tools
 WORKDIR /app
 
 ARG TURBO_VERSION=2.9.18
 COPY package.json ./package.json
 RUN --mount=type=secret,id=packagemaze_npmrc,target=/run/secrets/packagemaze.npmrc \
-    COREPACK_NPM_TOKEN="$(sed -n 's#^//pkg.packagemaze.com/packagemaze/npm-smoke-test/:_authToken=##p' /run/secrets/packagemaze.npmrc)" && \
-    test -n "$COREPACK_NPM_TOKEN" && \
-    export COREPACK_NPM_REGISTRY=https://pkg.packagemaze.com/packagemaze/npm-smoke-test COREPACK_NPM_TOKEN NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc && \
-    pnpm add -g turbo@${TURBO_VERSION}
+    PNPM_VERSION="$(node -p "const pm = require('./package.json').packageManager || ''; const match = pm.match(/^pnpm@([^+]+)(?:[+].*)?$/); if (!match) throw new Error('Expected packageManager to be pnpm@<version>'); match[1]")" && \
+    NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc \
+    npm install --global --no-audit --no-fund pnpm@"${PNPM_VERSION}" turbo@"${TURBO_VERSION}" && \
+    pnpm --version && \
+    turbo --version
+
+# *****************************************************************************
+# STAGE 1: Build the project
+# *****************************************************************************
+FROM package-tools AS builder
+RUN apk add --no-cache libc6-compat
+# Set working directory
+WORKDIR /app
+
 COPY . .
 
 RUN turbo prune --scope=web --docker
@@ -29,7 +37,7 @@ RUN turbo prune --scope=web --docker
 # STAGE 2: Install dependencies & build the project
 # *****************************************************************************
 # Add lockfile and package.json's of isolated subworkspace
-FROM base AS installer
+FROM package-tools AS installer
 
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
@@ -46,16 +54,10 @@ COPY turbo.json turbo.json
 # Fetch dependencies to cache store, then install offline with dev deps
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     --mount=type=secret,id=packagemaze_npmrc,target=/run/secrets/packagemaze.npmrc \
-    COREPACK_NPM_TOKEN="$(sed -n 's#^//pkg.packagemaze.com/packagemaze/npm-smoke-test/:_authToken=##p' /run/secrets/packagemaze.npmrc)" && \
-    test -n "$COREPACK_NPM_TOKEN" && \
-    export COREPACK_NPM_REGISTRY=https://pkg.packagemaze.com/packagemaze/npm-smoke-test COREPACK_NPM_TOKEN NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc && \
-    pnpm fetch --store-dir=/pnpm/store
+    NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc pnpm fetch --store-dir=/pnpm/store
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     --mount=type=secret,id=packagemaze_npmrc,target=/run/secrets/packagemaze.npmrc \
-    COREPACK_NPM_TOKEN="$(sed -n 's#^//pkg.packagemaze.com/packagemaze/npm-smoke-test/:_authToken=##p' /run/secrets/packagemaze.npmrc)" && \
-    test -n "$COREPACK_NPM_TOKEN" && \
-    export COREPACK_NPM_REGISTRY=https://pkg.packagemaze.com/packagemaze/npm-smoke-test COREPACK_NPM_TOKEN NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc && \
-    CI=true pnpm install --offline --frozen-lockfile --store-dir=/pnpm/store
+    CI=true NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc pnpm install --offline --frozen-lockfile --store-dir=/pnpm/store
 
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
@@ -84,7 +86,8 @@ ENV VITE_WEB_BASE_URL=$VITE_WEB_BASE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV TURBO_TELEMETRY_DISABLED=1
 
-RUN pnpm turbo run build --filter=web
+RUN --mount=type=secret,id=packagemaze_npmrc,target=/run/secrets/packagemaze.npmrc \
+    NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc pnpm turbo run build --filter=web
 
 # *****************************************************************************
 # STAGE 3: Serve with nginx
