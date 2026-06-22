@@ -17,9 +17,9 @@ COPY package.json ./package.json
 # Normalize PackageMaze-relative tarball paths before npm installs the bootstrap tools.
 RUN --mount=type=secret,id=packagemaze_npmrc,target=/run/secrets/packagemaze.npmrc \
     PNPM_VERSION="$(node -p "const pm = require('./package.json').packageManager || ''; const match = pm.match(/^pnpm@([^+]+)(?:[+].*)?$/); if (!match) throw new Error('Expected packageManager to be pnpm@<version>'); match[1]")" && \
-    PACKAGE_MAZE_NPM_REGISTRY="$(NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc npm config get registry)" && \
+    PACKAGE_MAZE_NPM_REGISTRY="$(NPM_CONFIG_REPLACE_REGISTRY_HOST=never NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc npm config get registry)" && \
     package_tarball_url() { \
-      raw_tarball="$(NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc npm view "$1" dist.tarball)" || return 1; \
+      raw_tarball="$(NPM_CONFIG_REPLACE_REGISTRY_HOST=never NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc npm view "$1" dist.tarball)" || return 1; \
       node -e "const raw = process.argv[1].trim(); const registry = process.argv[2].trim(); const origin = new URL(registry).origin + '/'; if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) { process.stdout.write(raw); } else { const cleaned = raw.replace(/^\/+/, ''); const base = cleaned.startsWith('packagemaze/') ? origin : registry; process.stdout.write(new URL(cleaned, base).href); }" "$raw_tarball" "$PACKAGE_MAZE_NPM_REGISTRY"; \
     } && \
     case "$(uname -m)" in \
@@ -30,6 +30,7 @@ RUN --mount=type=secret,id=packagemaze_npmrc,target=/run/secrets/packagemaze.npm
     PNPM_TARBALL="$(package_tarball_url "pnpm@${PNPM_VERSION}")" && \
     TURBO_TARBALL="$(package_tarball_url "turbo@${TURBO_VERSION}")" && \
     TURBO_NATIVE_TARBALL="$(package_tarball_url "${TURBO_NATIVE_PACKAGE}@${TURBO_VERSION}")" && \
+    NPM_CONFIG_REPLACE_REGISTRY_HOST=never \
     NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc \
     npm install --global --no-audit --no-fund --omit=optional "$PNPM_TARBALL" "$TURBO_TARBALL" "$TURBO_NATIVE_TARBALL" && \
     pnpm --version && \
