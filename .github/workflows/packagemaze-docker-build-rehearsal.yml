@@ -61,8 +61,53 @@ jobs:
 
       - uses: docker/setup-buildx-action@v4
 
+      - name: Build web prune stage
+        if: matrix.name == 'web'
+        env:
+          DOCKER_BUILD_CONTEXT: ${{ matrix.context }}
+          DOCKER_BUILD_FILE: ${{ matrix.file }}
+        run: |
+          set -euo pipefail
+          docker buildx build \
+            --progress=plain \
+            --target builder \
+            --secret id=packagemaze_npmrc,src="$RUNNER_TEMP/packagemaze.npmrc" \
+            --secret id=packagemaze_pip_conf,src="$RUNNER_TEMP/packagemaze-pip.conf" \
+            --file "$DOCKER_BUILD_FILE" \
+            "$DOCKER_BUILD_CONTEXT"
+
+      - name: Build web package fetch stage
+        if: matrix.name == 'web'
+        env:
+          DOCKER_BUILD_CONTEXT: ${{ matrix.context }}
+          DOCKER_BUILD_FILE: ${{ matrix.file }}
+        run: |
+          set -euo pipefail
+          docker buildx build \
+            --progress=plain \
+            --target web-fetch \
+            --secret id=packagemaze_npmrc,src="$RUNNER_TEMP/packagemaze.npmrc" \
+            --secret id=packagemaze_pip_conf,src="$RUNNER_TEMP/packagemaze-pip.conf" \
+            --file "$DOCKER_BUILD_FILE" \
+            "$DOCKER_BUILD_CONTEXT"
+
+      - name: Build web dependency install stage
+        if: matrix.name == 'web'
+        env:
+          DOCKER_BUILD_CONTEXT: ${{ matrix.context }}
+          DOCKER_BUILD_FILE: ${{ matrix.file }}
+        run: |
+          set -euo pipefail
+          docker buildx build \
+            --progress=plain \
+            --target web-dependencies \
+            --secret id=packagemaze_npmrc,src="$RUNNER_TEMP/packagemaze.npmrc" \
+            --secret id=packagemaze_pip_conf,src="$RUNNER_TEMP/packagemaze-pip.conf" \
+            --file "$DOCKER_BUILD_FILE" \
+            "$DOCKER_BUILD_CONTEXT"
+
       - name: Build targeted Docker dependency stage
-        if: matrix.target != ''
+        if: matrix.name != 'web' && matrix.target != ''
         uses: docker/build-push-action@v7.0.0
         with:
           context: ${{ matrix.context }}
