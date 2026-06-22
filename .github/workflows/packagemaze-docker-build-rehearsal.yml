@@ -42,12 +42,12 @@ jobs:
             build_args: ""
           - name: api
             context: ./apps/api
-            file: Dockerfile.api
+            file: ./apps/api/Dockerfile.api
             target: ""
             build_args: ""
           - name: aio
             context: ./deployments/aio/community
-            file: Dockerfile
+            file: ./deployments/aio/community/Dockerfile
             target: ""
             build_args: PLANE_VERSION=v0.27.1
 
