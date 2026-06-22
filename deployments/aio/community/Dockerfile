@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 ARG PLANE_VERSION=v0.27.1
 FROM --platform=$BUILDPLATFORM tonistiigi/binfmt AS binfmt
 
@@ -47,7 +48,8 @@ COPY --from=backend-img /usr/local/bin/ /usr/local/bin/
 
 RUN apk add --no-cache nss-tools bash curl uuidgen ncdu vim
 
-RUN pip install supervisor
+RUN --mount=type=secret,id=packagemaze_pip_conf,target=/run/secrets/pip.conf \
+    PIP_CONFIG_FILE=/run/secrets/pip.conf pip install supervisor
 RUN mkdir -p /etc/supervisor/conf.d
 
 COPY start.sh /app/start.sh

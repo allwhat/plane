@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM python:3.12.10-alpine
 
 # set environment variables
@@ -21,7 +22,8 @@ RUN apk add --no-cache --upgrade \
 COPY requirements.txt ./
 COPY requirements ./requirements
 RUN apk add --no-cache libffi-dev
-RUN apk add --no-cache --virtual .build-deps \
+RUN --mount=type=secret,id=packagemaze_pip_conf,target=/run/secrets/pip.conf \
+    apk add --no-cache --virtual .build-deps \
     "bash~=5.2" \
     "g++" \
     "gcc" \
@@ -32,7 +34,7 @@ RUN apk add --no-cache --virtual .build-deps \
     "libc-dev" \
     "linux-headers" \
     && \
-    pip install -r requirements.txt --compile --no-cache-dir \
+    PIP_CONFIG_FILE=/run/secrets/pip.conf pip install -r requirements.txt --compile --no-cache-dir \
     && \
     apk del .build-deps \
     && \
