@@ -15,9 +15,12 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 ARG TURBO_VERSION=2.9.18
+COPY package.json ./package.json
 RUN --mount=type=secret,id=packagemaze_npmrc,target=/run/secrets/packagemaze.npmrc \
-    corepack enable pnpm && \
-    NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc pnpm add -g turbo@${TURBO_VERSION}
+    COREPACK_NPM_TOKEN="$(sed -n 's#^//pkg.packagemaze.com/packagemaze/npm-smoke-test/:_authToken=##p' /run/secrets/packagemaze.npmrc)" && \
+    test -n "$COREPACK_NPM_TOKEN" && \
+    export COREPACK_NPM_REGISTRY=https://pkg.packagemaze.com/packagemaze/npm-smoke-test COREPACK_NPM_TOKEN NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc && \
+    pnpm add -g turbo@${TURBO_VERSION}
 COPY . .
 
 RUN turbo prune --scope=web --docker
@@ -35,7 +38,6 @@ WORKDIR /app
 COPY .gitignore .gitignore
 COPY --from=builder /app/out/json/ .
 COPY --from=builder /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
-RUN corepack enable pnpm
 
 # Copy full directory structure before fetch to ensure all package.json files are available
 COPY --from=builder /app/out/full/ .
@@ -44,10 +46,16 @@ COPY turbo.json turbo.json
 # Fetch dependencies to cache store, then install offline with dev deps
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     --mount=type=secret,id=packagemaze_npmrc,target=/run/secrets/packagemaze.npmrc \
-    NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc pnpm fetch --store-dir=/pnpm/store
+    COREPACK_NPM_TOKEN="$(sed -n 's#^//pkg.packagemaze.com/packagemaze/npm-smoke-test/:_authToken=##p' /run/secrets/packagemaze.npmrc)" && \
+    test -n "$COREPACK_NPM_TOKEN" && \
+    export COREPACK_NPM_REGISTRY=https://pkg.packagemaze.com/packagemaze/npm-smoke-test COREPACK_NPM_TOKEN NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc && \
+    pnpm fetch --store-dir=/pnpm/store
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     --mount=type=secret,id=packagemaze_npmrc,target=/run/secrets/packagemaze.npmrc \
-    CI=true NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc pnpm install --offline --frozen-lockfile --store-dir=/pnpm/store
+    COREPACK_NPM_TOKEN="$(sed -n 's#^//pkg.packagemaze.com/packagemaze/npm-smoke-test/:_authToken=##p' /run/secrets/packagemaze.npmrc)" && \
+    test -n "$COREPACK_NPM_TOKEN" && \
+    export COREPACK_NPM_REGISTRY=https://pkg.packagemaze.com/packagemaze/npm-smoke-test COREPACK_NPM_TOKEN NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc && \
+    CI=true pnpm install --offline --frozen-lockfile --store-dir=/pnpm/store
 
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
