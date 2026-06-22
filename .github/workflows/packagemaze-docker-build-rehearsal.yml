@@ -22,7 +22,7 @@ jobs:
           - name: web
             context: .
             file: ./apps/web/Dockerfile.web
-            target: installer
+            target: web-dependencies
             build_args: ""
           - name: api
             context: ./apps/api
