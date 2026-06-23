@@ -54,3 +54,85 @@ jobs:
         run: cd apps/api && pip install -r requirements.txt
       - name: Lint apps/api
         run: ruff check --fix apps/api
+
+  install-benchmark-packagemaze-cold:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    name: Benchmark PyPI install with PackageMaze (cold)
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12.x"
+      - name: Set up PackageMaze for PyPI installs
+        id: packagemaze-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/pypi-smoke-test
+          purpose: install
+      - name: Install API dependencies with PackageMaze
+        env:
+          PIP_INDEX_URL: https://__token__:${{ steps.packagemaze-token.outputs.token }}@pkg.packagemaze.com/packagemaze/pypi-smoke-test/simple/
+        run: |
+          set -euo pipefail
+          start_ms="$(date +%s%3N)"
+          python -m pip install ruff
+          cd apps/api
+          pip install -r requirements.txt
+          end_ms="$(date +%s%3N)"
+          elapsed_ms="$((end_ms - start_ms))"
+          printf 'BENCHMARK_RESULT repo=plane protocol=pypi scenario=packagemaze-cold milliseconds=%s seconds=%s.%03d\n' "$elapsed_ms" "$((elapsed_ms / 1000))" "$((elapsed_ms % 1000))"
+
+  install-benchmark-packagemaze-warm:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: install-benchmark-packagemaze-cold
+    runs-on: ubuntu-latest
+    name: Benchmark PyPI install with PackageMaze (warm)
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12.x"
+      - name: Set up PackageMaze for PyPI installs
+        id: packagemaze-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/pypi-smoke-test
+          purpose: install
+      - name: Install API dependencies with PackageMaze
+        env:
+          PIP_INDEX_URL: https://__token__:${{ steps.packagemaze-token.outputs.token }}@pkg.packagemaze.com/packagemaze/pypi-smoke-test/simple/
+        run: |
+          set -euo pipefail
+          start_ms="$(date +%s%3N)"
+          python -m pip install ruff
+          cd apps/api
+          pip install -r requirements.txt
+          end_ms="$(date +%s%3N)"
+          elapsed_ms="$((end_ms - start_ms))"
+          printf 'BENCHMARK_RESULT repo=plane protocol=pypi scenario=packagemaze-warm milliseconds=%s seconds=%s.%03d\n' "$elapsed_ms" "$((elapsed_ms / 1000))" "$((elapsed_ms % 1000))"
+
+  install-benchmark-upstream:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    name: Benchmark PyPI install from upstream
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12.x"
+      - name: Install API dependencies from upstream
+        env:
+          PIP_INDEX_URL: https://pypi.org/simple/
+        run: |
+          set -euo pipefail
+          start_ms="$(date +%s%3N)"
+          python -m pip install ruff
+          cd apps/api
+          pip install -r requirements.txt
+          end_ms="$(date +%s%3N)"
+          elapsed_ms="$((end_ms - start_ms))"
+          printf 'BENCHMARK_RESULT repo=plane protocol=pypi scenario=upstream milliseconds=%s seconds=%s.%03d\n' "$elapsed_ms" "$((elapsed_ms / 1000))" "$((elapsed_ms % 1000))"
