@@ -72,13 +72,18 @@ FROM web-dependency-inputs AS web-fetch
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     --mount=type=secret,id=packagemaze_npmrc,target=/run/secrets/packagemaze.npmrc \
+    --mount=type=secret,id=packagemaze_npm_token,target=/run/secrets/packagemaze_npm_token \
+    MAZE_TOKEN="$(cat /run/secrets/packagemaze_npm_token)" \
     NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc pnpm fetch --store-dir=/pnpm/store
 
 FROM web-fetch AS web-dependencies
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     --mount=type=secret,id=packagemaze_npmrc,target=/run/secrets/packagemaze.npmrc \
-    CI=true NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc pnpm install --offline --frozen-lockfile --store-dir=/pnpm/store
+    --mount=type=secret,id=packagemaze_npm_token,target=/run/secrets/packagemaze_npm_token \
+    CI=true \
+    MAZE_TOKEN="$(cat /run/secrets/packagemaze_npm_token)" \
+    NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc pnpm install --offline --frozen-lockfile --store-dir=/pnpm/store
 
 # *****************************************************************************
 # STAGE 3: Build the project
@@ -113,6 +118,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV TURBO_TELEMETRY_DISABLED=1
 
 RUN --mount=type=secret,id=packagemaze_npmrc,target=/run/secrets/packagemaze.npmrc \
+    --mount=type=secret,id=packagemaze_npm_token,target=/run/secrets/packagemaze_npm_token \
+    MAZE_TOKEN="$(cat /run/secrets/packagemaze_npm_token)" \
     NPM_CONFIG_USERCONFIG=/run/secrets/packagemaze.npmrc pnpm turbo run build --filter=web
 
 # *****************************************************************************
