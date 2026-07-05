@@ -22,7 +22,7 @@ jobs:
   # Format check has no build dependencies - run immediately in parallel
   check-format:
     name: check:format
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     if: |
       github.event.pull_request.draft == false &&
@@ -73,7 +73,7 @@ jobs:
   # Build packages - required for lint and type checks
   build:
     name: Build packages
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     if: |
       github.event.pull_request.draft == false &&
@@ -140,7 +140,7 @@ jobs:
   # Lint check - no build dependency, OxLint is a standalone Rust binary
   check-lint:
     name: check:lint
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     if: |
       github.event.pull_request.draft == false &&
@@ -191,7 +191,7 @@ jobs:
   # Type check depends on build artifacts
   check-types:
     name: check:types
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: build
     timeout-minutes: 15
     env:
