@@ -251,3 +251,112 @@ jobs:
 
       - name: Run check:types
         run: pnpm turbo run check:types --affected
+
+  install-benchmark-packagemaze-cold:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    name: Benchmark npm install with PackageMaze (cold)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22.18.0"
+          package-manager-cache: false
+
+      - name: Enable Corepack and pnpm
+        run: corepack enable pnpm
+
+      - name: Set up PackageMaze for npm installs
+        id: packagemaze-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/npm-smoke-test
+          purpose: install
+
+      - name: Install dependencies with PackageMaze
+        env:
+          MAZE_TOKEN: ${{ steps.packagemaze-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          start_ms="$(date +%s%3N)"
+          pnpm install --frozen-lockfile --store-dir "$RUNNER_TEMP/pnpm-store"
+          end_ms="$(date +%s%3N)"
+          elapsed_ms="$((end_ms - start_ms))"
+          printf 'BENCHMARK_RESULT repo=plane protocol=npm scenario=packagemaze-cold milliseconds=%s seconds=%s.%03d\n' "$elapsed_ms" "$((elapsed_ms / 1000))" "$((elapsed_ms % 1000))"
+
+  install-benchmark-packagemaze-warm:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: install-benchmark-packagemaze-cold
+    runs-on: ubuntu-latest
+    name: Benchmark npm install with PackageMaze (warm)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22.18.0"
+          package-manager-cache: false
+
+      - name: Enable Corepack and pnpm
+        run: corepack enable pnpm
+
+      - name: Set up PackageMaze for npm installs
+        id: packagemaze-token
+        uses: packagemaze/setup-maze@v0.0.2
+        with:
+          feed: packagemaze/npm-smoke-test
+          purpose: install
+
+      - name: Install dependencies with PackageMaze
+        env:
+          MAZE_TOKEN: ${{ steps.packagemaze-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          start_ms="$(date +%s%3N)"
+          pnpm install --frozen-lockfile --store-dir "$RUNNER_TEMP/pnpm-store"
+          end_ms="$(date +%s%3N)"
+          elapsed_ms="$((end_ms - start_ms))"
+          printf 'BENCHMARK_RESULT repo=plane protocol=npm scenario=packagemaze-warm milliseconds=%s seconds=%s.%03d\n' "$elapsed_ms" "$((elapsed_ms / 1000))" "$((elapsed_ms % 1000))"
+
+  install-benchmark-upstream:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    name: Benchmark npm install from upstream
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22.18.0"
+          package-manager-cache: false
+
+      - name: Enable Corepack and pnpm
+        run: corepack enable pnpm
+
+      - name: Install dependencies from upstream
+        env:
+          MAZE_TOKEN: unused
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+        run: |
+          set -euo pipefail
+          start_ms="$(date +%s%3N)"
+          pnpm install --frozen-lockfile --store-dir "$RUNNER_TEMP/pnpm-store" --registry=https://registry.npmjs.org/
+          end_ms="$(date +%s%3N)"
+          elapsed_ms="$((end_ms - start_ms))"
+          printf 'BENCHMARK_RESULT repo=plane protocol=npm scenario=upstream milliseconds=%s seconds=%s.%03d\n' "$elapsed_ms" "$((elapsed_ms / 1000))" "$((elapsed_ms % 1000))"
