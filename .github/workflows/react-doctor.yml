@@ -52,7 +52,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: "22.18.0"
+          node-version: "22.22.2"
 
       - id: packagemaze-token
         uses: ./.github/actions/setup-packagemaze-npm
