@@ -32,7 +32,7 @@ jobs:
     name: check:sync
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -43,17 +43,11 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "22.18.0"
+          node-version: "22.22.2"
 
-      - name: Enable Corepack and pnpm
-        run: corepack enable pnpm
-
-      - name: Set up my CI to install from PackageMaze
+      - name: Set up PackageMaze npm access
         id: packagemaze-token
-        uses: packagemaze/setup-maze@v0.0.2
-        with:
-          feed: packagemaze/npm-smoke-test
-          purpose: install
+        uses: ./.github/actions/setup-packagemaze-npm
 
       - name: Run sync check
         env:

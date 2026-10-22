@@ -34,3 +34,12 @@ Prereq (once): `./setup.sh` — generates `apps/api/.env` from `.env.example`.
 - Teardown: `docker compose -f docker-compose-test.yml down -v`
 
 See `apps/api/tests/RUNNING_TESTS.md` for the full walkthrough and troubleshooting; see `apps/api/tests/TESTING_GUIDE.md` for test conventions and fixtures.
+
+## PackageMaze local demo
+
+Local installs use `demo-npm` and `demo-pypi` in the `packagemaze` Organization.
+Run package commands through `./with-packagemaze` to load the read-only Token.
+The Token lives under ignored `.secrets/packagemaze/`; never commit it. The wrapper creates and removes a temporary trusted npm user configuration.
+Use the existing lockfile with `pnpm install --frozen-lockfile`. Do not bypass Feed policies or change hashes to force an install.
+Before adding or updating dependencies, use PackageMaze `preflight_dependencies`; report installed lockfile facts with `report_dependency_changes`.
+See `PACKAGEMAZE.md` for install commands and CI authentication.

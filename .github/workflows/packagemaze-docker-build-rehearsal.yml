@@ -15,6 +15,7 @@ jobs:
   docker-builds:
     name: Build ${{ matrix.name }} with PackageMaze
     runs-on: blacksmith-4vcpu-ubuntu-2204
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -22,115 +23,29 @@ jobs:
           - name: web
             context: .
             file: ./apps/web/Dockerfile.web
-            target: web-dependencies
-            build_args: ""
+            feed: packagemaze/demo-npm
           - name: api
             context: ./apps/api
             file: ./apps/api/Dockerfile.api
-            target: ""
-            build_args: ""
-
+            feed: packagemaze/demo-pypi
     steps:
       - uses: actions/checkout@v6
-
-      - id: packagemaze-npm-token
-        uses: packagemaze/setup-maze@v0.0.2
+      - id: maze
+        uses: packagemaze/setup-maze@v0.0.5
         with:
-          feed: packagemaze/npm-smoke-test
+          feed: ${{ matrix.feed }}
           purpose: docker-build
-
-      - id: packagemaze-pypi-token
-        uses: packagemaze/setup-maze@v0.0.2
-        with:
-          feed: packagemaze/pypi-smoke-test
-          purpose: docker-build
-
-      - name: Write BuildKit PackageMaze package-client config
-        env:
-          PACKAGE_MAZE_NPM_TOKEN: ${{ steps.packagemaze-npm-token.outputs.token }}
-          PACKAGE_MAZE_PYPI_TOKEN: ${{ steps.packagemaze-pypi-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          umask 077
-          {
-            echo "registry=https://pkg.packagemaze.com/packagemaze/npm-smoke-test/"
-            echo "replace-registry-host=always"
-            printf "//pkg.packagemaze.com/packagemaze/npm-smoke-test/:_authToken=%s\n" "$PACKAGE_MAZE_NPM_TOKEN"
-          } > "$RUNNER_TEMP/packagemaze.npmrc"
-          printf "%s" "$PACKAGE_MAZE_NPM_TOKEN" > "$RUNNER_TEMP/packagemaze-npm-token"
-          printf "[global]\nindex-url = https://__token__:%s@pkg.packagemaze.com/packagemaze/pypi-smoke-test/simple/\n" "$PACKAGE_MAZE_PYPI_TOKEN" > "$RUNNER_TEMP/packagemaze-pip.conf"
-
-      - name: Setup Blacksmith Builder
+      - name: Set up Blacksmith Builder
         uses: useblacksmith/setup-docker-builder@v1
-
-      - name: Build web prune stage
-        if: matrix.name == 'web'
-        env:
-          DOCKER_BUILD_CONTEXT: ${{ matrix.context }}
-          DOCKER_BUILD_FILE: ${{ matrix.file }}
-        run: |
-          set -euo pipefail
-          docker buildx build \
-            --progress=plain \
-            --target builder \
-            --secret id=packagemaze_npmrc,src="$RUNNER_TEMP/packagemaze.npmrc" \
-            --secret id=packagemaze_pip_conf,src="$RUNNER_TEMP/packagemaze-pip.conf" \
-            --file "$DOCKER_BUILD_FILE" \
-            "$DOCKER_BUILD_CONTEXT"
-
-      - name: Build web package fetch stage
-        if: matrix.name == 'web'
-        env:
-          DOCKER_BUILD_CONTEXT: ${{ matrix.context }}
-          DOCKER_BUILD_FILE: ${{ matrix.file }}
-        run: |
-          set -euo pipefail
-          docker buildx build \
-            --progress=plain \
-            --target web-fetch \
-            --secret id=packagemaze_npmrc,src="$RUNNER_TEMP/packagemaze.npmrc" \
-            --secret id=packagemaze_npm_token,src="$RUNNER_TEMP/packagemaze-npm-token" \
-            --secret id=packagemaze_pip_conf,src="$RUNNER_TEMP/packagemaze-pip.conf" \
-            --file "$DOCKER_BUILD_FILE" \
-            "$DOCKER_BUILD_CONTEXT"
-
-      - name: Build web dependency install stage
-        if: matrix.name == 'web'
-        env:
-          DOCKER_BUILD_CONTEXT: ${{ matrix.context }}
-          DOCKER_BUILD_FILE: ${{ matrix.file }}
-        run: |
-          set -euo pipefail
-          docker buildx build \
-            --progress=plain \
-            --target web-dependencies \
-            --secret id=packagemaze_npmrc,src="$RUNNER_TEMP/packagemaze.npmrc" \
-            --secret id=packagemaze_npm_token,src="$RUNNER_TEMP/packagemaze-npm-token" \
-            --secret id=packagemaze_pip_conf,src="$RUNNER_TEMP/packagemaze-pip.conf" \
-            --file "$DOCKER_BUILD_FILE" \
-            "$DOCKER_BUILD_CONTEXT"
-
-      - name: Build targeted Docker dependency stage
-        if: matrix.name != 'web' && matrix.target != ''
-        uses: useblacksmith/build-push-action@v2
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.file }}
-          target: ${{ matrix.target }}
-          build-args: ${{ matrix.build_args }}
-          push: false
-          secret-files: |
-            packagemaze_npmrc=${{ runner.temp }}/packagemaze.npmrc
-            packagemaze_pip_conf=${{ runner.temp }}/packagemaze-pip.conf
-
       - name: Build Docker image
-        if: matrix.target == ''
         uses: useblacksmith/build-push-action@v2
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
-          build-args: ${{ matrix.build_args }}
           push: false
-          secret-files: |
-            packagemaze_npmrc=${{ runner.temp }}/packagemaze.npmrc
-            packagemaze_pip_conf=${{ runner.temp }}/packagemaze-pip.conf
+          secret-files: ${{ steps.maze.outputs.secret_files }}
+      - name: Remove BuildKit credentials
+        if: always() && steps.maze.outputs.secret_path != ''
+        env:
+          MAZE_SECRET_PATH: ${{ steps.maze.outputs.secret_path }}
+        run: rm -f -- "$MAZE_SECRET_PATH"
