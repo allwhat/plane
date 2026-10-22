@@ -50,11 +50,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - id: packagemaze-token
-        uses: packagemaze/setup-maze@v0.0.2
+      - uses: actions/setup-node@v6
         with:
-          feed: packagemaze/npm-smoke-test
-          purpose: install
+          node-version: "22.18.0"
+
+      - id: packagemaze-token
+        uses: ./.github/actions/setup-packagemaze-npm
 
       - uses: millionco/react-doctor@v2
         env:

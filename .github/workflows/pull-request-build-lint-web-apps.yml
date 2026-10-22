@@ -23,10 +23,10 @@ jobs:
   check-format:
     name: check:format
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 10
+    timeout-minutes: 30
     if: |
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.requested_reviewers != null
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft == false && github.event.pull_request.requested_reviewers != null)
     env:
       TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
       TURBO_SCM_HEAD: ${{ github.sha }}
@@ -42,27 +42,21 @@ jobs:
         with:
           node-version: "22.18.0"
 
-      - name: Enable Corepack and pnpm
-        run: corepack enable pnpm
+      - name: Set up PackageMaze npm access
+        id: packagemaze-token
+        uses: ./.github/actions/setup-packagemaze-npm
 
       - name: Get pnpm store directory
         shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
 
       - name: Cache pnpm store
         uses: actions/cache@v5
         with:
           path: ${{ env.STORE_PATH }}
-          key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: demo-npm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            pnpm-store-${{ runner.os }}-
-
-      - name: Set up my CI to install from PackageMaze
-        id: packagemaze-token
-        uses: packagemaze/setup-maze@v0.0.2
-        with:
-          feed: packagemaze/npm-smoke-test
-          purpose: install
+            demo-npm-store-${{ runner.os }}-
 
       - name: Install dependencies
         env:
@@ -70,16 +64,23 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check formatting
-        run: pnpm turbo run check:format --affected
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            pnpm turbo run check:format
+          else
+            pnpm turbo run check:format --affected
+          fi
 
   # Build packages - required for lint and type checks
   build:
     name: Build packages
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
+    timeout-minutes: 30
     if: |
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.requested_reviewers != null
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft == false && github.event.pull_request.requested_reviewers != null)
     env:
       TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
       TURBO_SCM_HEAD: ${{ github.sha }}
@@ -96,20 +97,21 @@ jobs:
         with:
           node-version: "22.18.0"
 
-      - name: Enable Corepack and pnpm
-        run: corepack enable pnpm
+      - name: Set up PackageMaze npm access
+        id: packagemaze-token
+        uses: ./.github/actions/setup-packagemaze-npm
 
       - name: Get pnpm store directory
         shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
 
       - name: Cache pnpm store
         uses: actions/cache@v5
         with:
           path: ${{ env.STORE_PATH }}
-          key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: demo-npm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            pnpm-store-${{ runner.os }}-
+            demo-npm-store-${{ runner.os }}-
 
       - name: Restore Turbo cache
         uses: actions/cache/restore@v5
@@ -120,20 +122,20 @@ jobs:
             turbo-${{ runner.os }}-${{ github.event.pull_request.base.sha }}-
             turbo-${{ runner.os }}-
 
-      - name: Set up my CI to install from PackageMaze
-        id: packagemaze-token
-        uses: packagemaze/setup-maze@v0.0.2
-        with:
-          feed: packagemaze/npm-smoke-test
-          purpose: install
-
       - name: Install dependencies
         env:
           MAZE_TOKEN: ${{ steps.packagemaze-token.outputs.token }}
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
-        run: pnpm turbo run build --affected
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            pnpm turbo run build
+          else
+            pnpm turbo run build --affected
+          fi
 
       - name: Save Turbo cache
         uses: actions/cache/save@v5
@@ -145,10 +147,10 @@ jobs:
   check-lint:
     name: check:lint
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 10
+    timeout-minutes: 30
     if: |
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.requested_reviewers != null
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft == false && github.event.pull_request.requested_reviewers != null)
     env:
       TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
       TURBO_SCM_HEAD: ${{ github.sha }}
@@ -164,27 +166,21 @@ jobs:
         with:
           node-version: "22.18.0"
 
-      - name: Enable Corepack and pnpm
-        run: corepack enable pnpm
+      - name: Set up PackageMaze npm access
+        id: packagemaze-token
+        uses: ./.github/actions/setup-packagemaze-npm
 
       - name: Get pnpm store directory
         shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
 
       - name: Cache pnpm store
         uses: actions/cache@v5
         with:
           path: ${{ env.STORE_PATH }}
-          key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: demo-npm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            pnpm-store-${{ runner.os }}-
-
-      - name: Set up my CI to install from PackageMaze
-        id: packagemaze-token
-        uses: packagemaze/setup-maze@v0.0.2
-        with:
-          feed: packagemaze/npm-smoke-test
-          purpose: install
+            demo-npm-store-${{ runner.os }}-
 
       - name: Install dependencies
         env:
@@ -192,14 +188,21 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run check:lint
-        run: pnpm turbo run check:lint --affected
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            pnpm turbo run check:lint
+          else
+            pnpm turbo run check:lint --affected
+          fi
 
   # Type check depends on build artifacts
   check-types:
     name: check:types
     runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: build
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
       TURBO_SCM_HEAD: ${{ github.sha }}
@@ -216,20 +219,21 @@ jobs:
         with:
           node-version: "22.18.0"
 
-      - name: Enable Corepack and pnpm
-        run: corepack enable pnpm
+      - name: Set up PackageMaze npm access
+        id: packagemaze-token
+        uses: ./.github/actions/setup-packagemaze-npm
 
       - name: Get pnpm store directory
         shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
 
       - name: Cache pnpm store
         uses: actions/cache@v5
         with:
           path: ${{ env.STORE_PATH }}
-          key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: demo-npm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            pnpm-store-${{ runner.os }}-
+            demo-npm-store-${{ runner.os }}-
 
       - name: Restore Turbo cache
         uses: actions/cache/restore@v5
@@ -237,17 +241,17 @@ jobs:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.event.pull_request.base.sha }}-${{ github.sha }}
 
-      - name: Set up my CI to install from PackageMaze
-        id: packagemaze-token
-        uses: packagemaze/setup-maze@v0.0.2
-        with:
-          feed: packagemaze/npm-smoke-test
-          purpose: install
-
       - name: Install dependencies
         env:
           MAZE_TOKEN: ${{ steps.packagemaze-token.outputs.token }}
         run: pnpm install --frozen-lockfile
 
       - name: Run check:types
-        run: pnpm turbo run check:types --affected
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            pnpm turbo run check:types
+          else
+            pnpm turbo run check:types --affected
+          fi

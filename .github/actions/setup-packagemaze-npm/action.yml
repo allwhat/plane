@@ -1,0 +1,32 @@
+name: Set up Plane npm Feed
+description: Authenticate package clients and bootstrap the pinned pnpm through demo-npm.
+outputs:
+  token:
+    description: Short-lived read-only PackageMaze Token.
+    value: ${{ steps.maze.outputs.token }}
+runs:
+  using: composite
+  steps:
+    - id: maze
+      uses: packagemaze/setup-maze@v0.0.5
+      with:
+        feed: packagemaze/demo-npm
+        purpose: install
+    - name: Configure trusted npm credentials and Corepack
+      shell: bash
+      env:
+        MAZE_TOKEN: ${{ steps.maze.outputs.token }}
+        COREPACK_NPM_TOKEN: ${{ steps.maze.outputs.token }}
+        COREPACK_NPM_REGISTRY: https://pkg.packagemaze.com/packagemaze/demo-npm
+      run: |
+        set -euo pipefail
+        umask 077
+        export NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/plane-packagemaze.npmrc"
+        cat > "$NPM_CONFIG_USERCONFIG" <<'NPMRC'
+        registry=https://pkg.packagemaze.com/packagemaze/demo-npm/
+        replace-registry-host=npmjs
+        //pkg.packagemaze.com/packagemaze/demo-npm/:_authToken=${MAZE_TOKEN}
+        NPMRC
+        echo "NPM_CONFIG_USERCONFIG=$NPM_CONFIG_USERCONFIG" >> "$GITHUB_ENV"
+        corepack enable pnpm
+        pnpm --version

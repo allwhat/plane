@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+plane_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ $# -eq 0 ]]; then
+  echo "Usage: ./with-packagemaze <command> [arguments...]" >&2
+  exit 2
+fi
+if [[ -z "${MAZE_TOKEN:-}" ]]; then
+  MAZE_TOKEN="$(cat "$plane_root/.secrets/packagemaze/token")"
+fi
+export MAZE_TOKEN
+umask 077
+plane_config_dir="$(mktemp -d "${TMPDIR:-/tmp}/plane-packagemaze.XXXXXX")"
+trap 'rm -rf -- "$plane_config_dir"' EXIT
+export NPM_CONFIG_USERCONFIG="$plane_config_dir/npmrc"
+cat > "$NPM_CONFIG_USERCONFIG" <<'NPMRC'
+registry=https://pkg.packagemaze.com/packagemaze/demo-npm/
+replace-registry-host=npmjs
+//pkg.packagemaze.com/packagemaze/demo-npm/:_authToken=${MAZE_TOKEN}
+NPMRC
+export NPM_CONFIG_REGISTRY="https://pkg.packagemaze.com/packagemaze/demo-npm/"
+export COREPACK_NPM_REGISTRY="https://pkg.packagemaze.com/packagemaze/demo-npm"
+export COREPACK_NPM_TOKEN="$MAZE_TOKEN"
+export COREPACK_HOME="$plane_root/.secrets/packagemaze/corepack"
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+export UV_CONFIG_FILE="$plane_root/apps/api/uv.toml"
+export UV_INDEX_PACKAGEMAZE_USERNAME="__token__"
+export UV_INDEX_PACKAGEMAZE_PASSWORD="$MAZE_TOKEN"
+export PIP_INDEX_URL="https://__token__:${MAZE_TOKEN}@pkg.packagemaze.com/packagemaze/demo-pypi/simple/"
+export UV_CACHE_DIR="$plane_root/.secrets/packagemaze/uv-cache"
+if [[ -x /opt/homebrew/opt/libpq/bin/pg_config ]]; then
+  export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+fi
+"$@"

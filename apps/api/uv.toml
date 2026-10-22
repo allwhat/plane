@@ -1,0 +1,5 @@
+[[index]]
+name = "packagemaze"
+url = "https://pkg.packagemaze.com/packagemaze/demo-pypi/simple/"
+default = true
+authenticate = "always"

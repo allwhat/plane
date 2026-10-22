@@ -22,7 +22,8 @@ RUN apk add --no-cache --upgrade \
 COPY requirements.txt ./
 COPY requirements ./requirements
 RUN apk add --no-cache libffi-dev
-RUN --mount=type=secret,id=packagemaze_pip_conf,target=/run/secrets/pip.conf \
+RUN --mount=type=secret,id=packagemaze_pypi,required=true \
+    . /run/secrets/packagemaze_pypi && \
     apk add --no-cache --virtual .build-deps \
     "bash~=5.2" \
     "g++" \
@@ -34,7 +35,7 @@ RUN --mount=type=secret,id=packagemaze_pip_conf,target=/run/secrets/pip.conf \
     "libc-dev" \
     "linux-headers" \
     && \
-    PIP_CONFIG_FILE=/run/secrets/pip.conf pip install -r requirements.txt --compile --no-cache-dir \
+    pip install -r requirements.txt --compile --no-cache-dir \
     && \
     apk del .build-deps \
     && \
