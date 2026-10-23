@@ -16,11 +16,17 @@ Run commands from the repository root:
 
 The wrapper supplies authentication only to the command it runs. The newly issued read-only Token covers only the two demo Feeds and expires after 30 days. It is stored in the ignored, owner-only file `.secrets/packagemaze/token`; a temporary trusted npm user config is created for each invocation and removed on exit. An exported `MAZE_TOKEN` overrides the stored Token. No global npm, pip, or uv configuration is changed.
 
-The npm lockfile and the repository's dependency build-script allowlist are preserved. Python requirements include local, production, and test dependencies. On this Mac, the existing Homebrew libpq supplies `pg_config` for psycopg-c.
+The npm lockfile and the repository's dependency build-script allowlist are preserved. Python requirements include local, production, and test dependencies. `requirements/base.txt` includes the shared constraints file, so local installs, API CI, and Docker use the same verified dependency versions. Constraints restrict selected packages; they do not install test or development dependencies in a production-only install. Update the constraints deliberately with dependency changes and verify compatibility on each target platform. On this Mac, the existing Homebrew libpq supplies `pg_config` for psycopg-c.
 
 GitHub Actions uses `packagemaze/setup-maze@v0.0.5` to exchange GitHub OIDC identity for short-lived read-only Tokens. The web, i18n, and React Doctor jobs use demo-npm; API jobs use demo-pypi. Matching CI access rules are scoped to `allwhat/plane`. Docker builds use the action’s shell bundles through required BuildKit secret mounts; credentials are removed when each RUN finishes. Manual web runs build the full workspace, and the Docker rehearsal builds complete web and API images without pushing them. Docker images, OS packages, and Python runtimes are outside these npm/PyPI Feeds.
 
 Feed policies may hold a package version. Use PackageMaze diagnostics instead of adding a second index, changing artifact hashes, or bypassing the Feed.
+
+## Reproducible Python installs
+
+The initial cold comparison crossed the 24-hour Minimum Age boundary for `python-dateutil 3.0.0` (uploaded 21 October at 23:41 UTC). uv tried it, then downloaded older botocore candidates before returning to `python-dateutil 2.9.0.post0`, because the selected boto3/botocore line requires dateutil below 3. The final installed versions alone did not capture that extra resolver work.
+
+The constraints file preserves all 124 versions from the successful baseline. With fresh uv caches and environments on the same Mac, three constrained installs took 38.33, 34.66 and 34.75 seconds, all passing `uv pip check`. These measurements used uv 0.11.2 and CPython 3.12.13 through `demo-pypi`. The Feed retained server-side data; only the client caches were cold. The constraints do not replace Feed policy, artifact integrity checks, or an isolated build environment's own build requirements.
 
 ## Verified result and timings — 23 October 2026
 
